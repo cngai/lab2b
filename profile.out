@@ -1,0 +1,250 @@
+Total: 5124 samples
+    5088  99.3%  99.3%     5107  99.7% thread_list
+      10   0.2%  99.5%       10   0.2% __strcmp_sse42
+       9   0.2%  99.7%       13   0.3% SortedList_lookup
+       9   0.2%  99.8%       17   0.3% initialize_keys
+       5   0.1%  99.9%        5   0.1% __random_r
+       1   0.0% 100.0%        6   0.1% __random
+       1   0.0% 100.0%        1   0.0% _int_malloc
+       1   0.0% 100.0%        7   0.1% rand
+       0   0.0% 100.0%        6   0.1% SortedList_insert
+       0   0.0% 100.0%        1   0.0% __GI___libc_malloc
+       0   0.0% 100.0%     5107  99.7% __clone
+       0   0.0% 100.0%       17   0.3% __libc_start_main
+       0   0.0% 100.0%       17   0.3% _start
+       0   0.0% 100.0%       17   0.3% main
+       0   0.0% 100.0%     5107  99.7% start_thread
+ROUTINE ====================== thread_list in /u/cs/ugrad/ngai/CS111/Lab2B/lab2_list.c
+  5088   5107 Total samples (flat / cumulative)
+     .      .   95: 
+     .      .   96:         list_elements[i].key = key_val;
+     .      .   97:     }
+     .      .   98: }
+     .      .   99: 
+---
+     .      .  100: void* thread_list(void* ptr){
+     .      .  101:     int start = *(int*) ptr;
+     .      .  102:     int num_elements = num_threads * num_iterations;
+     .      .  103: 
+     .      .  104:     //iterate through specific elements and insert them into list
+     .      .  105:     int i;
+     .      .  106:     for (i = start; i < num_elements; i += num_threads){
+     .      .  107:         //protect with mutex
+     .      .  108:         if (sync_opt == 'm'){
+     .      .  109:             pthread_mutex_lock(&mutex);
+     .      .  110:             SortedList_insert(list, &list_elements[i]);
+     .      .  111:             pthread_mutex_unlock(&mutex);
+     .      .  112:         }
+     .      .  113:         //protect with spin-lock
+     .      .  114:         else if (sync_opt == 's'){
+  2315   2315  115:             while (__sync_lock_test_and_set(&spin_val, 1));
+     .      6  116:             SortedList_insert(list, &list_elements[i]);
+     .      .  117:             __sync_lock_release(&spin_val);
+     .      .  118:         }
+     .      .  119:         //no sync option
+     .      .  120:         else{
+     .      .  121:             SortedList_insert(list, &list_elements[i]);
+     .      .  122:         }
+     .      .  123:     }
+     .      .  124: 
+     .      .  125:     //get list length
+     .      .  126:     int list_length = 0;
+     .      .  127:     //protect with mutex
+     .      .  128:     if (sync_opt == 'm'){
+     .      .  129:         pthread_mutex_lock(&mutex);
+     .      .  130:         list_length = SortedList_length(list);
+     .      .  131:         pthread_mutex_unlock(&mutex);
+     .      .  132:     }
+     .      .  133:     //protect with spin-lock
+     .      .  134:     else if (sync_opt == 's'){
+     .      .  135:         while (__sync_lock_test_and_set(&spin_val, 1));
+     .      .  136:         list_length = SortedList_length(list);
+     .      .  137:         __sync_lock_release(&spin_val);
+     .      .  138:     }
+     .      .  139:     //no sync option
+     .      .  140:     else{
+     .      .  141:         list_length = SortedList_length(list);
+     .      .  142:     }
+     .      .  143:     if (list_length < 0){
+     .      .  144:         fprintf(stderr, "Error getting list length. %s.\n", strerror(errno));
+     .      .  145:         exit(2);
+     .      .  146:     }
+     .      .  147: 
+     .      .  148: 
+     .      .  149:     //look up and delete previously inserted key
+     .      .  150:     int j;
+     .      .  151:     SortedListElement_t* curr_element = NULL;
+     .      .  152:     for (j = start; j < num_elements; j += num_threads){
+     .      .  153:         //protect with mutex
+     .      .  154:         if (sync_opt == 'm'){
+     .      .  155:             pthread_mutex_lock(&mutex);
+     .      .  156: 
+     .      .  157:             curr_element = SortedList_lookup(list, list_elements[j].key);
+     .      .  158:             if (curr_element == NULL){
+     .      .  159:                 fprintf(stderr, "Error looking up element. %s.\n", strerror(errno));
+     .      .  160:                 exit(2);
+     .      .  161:             }
+     .      .  162:             if (SortedList_delete(curr_element) == 1){
+     .      .  163:                 fprintf(stderr, "Error deleting element. %s.\n", strerror(errno));
+     .      .  164:                 exit(2);
+     .      .  165:             }
+     .      .  166: 
+     .      .  167:             pthread_mutex_unlock(&mutex);
+     .      .  168:         }
+     .      .  169:         //protect with spin-lock
+     .      .  170:         else if (sync_opt == 's'){
+  2773   2773  171:             while (__sync_lock_test_and_set(&spin_val, 1));
+     .      .  172:             
+     .     13  173:             curr_element = SortedList_lookup(list, list_elements[j].key);
+     .      .  174:             if (curr_element == NULL){
+     .      .  175:                 fprintf(stderr, "Error looking up element. %s.\n", strerror(errno));
+     .      .  176:                 exit(2);
+     .      .  177:             }
+     .      .  178:             if (SortedList_delete(curr_element) == 1){
+     .      .  179:                 fprintf(stderr, "Error deleting element. %s.\n", strerror(errno));
+     .      .  180:                 exit(2);
+     .      .  181:             }
+     .      .  182: 
+     .      .  183:             __sync_lock_release(&spin_val);
+     .      .  184:         }
+     .      .  185:         //no sync option
+     .      .  186:         else{
+     .      .  187:             curr_element = SortedList_lookup(list, list_elements[j].key);
+     .      .  188: 
+     .      .  189:             if (curr_element == NULL){
+     .      .  190:                 fprintf(stderr, "Error looking up element. %s.\n", strerror(errno));
+     .      .  191:                 exit(2);
+     .      .  192:             }
+     .      .  193: 
+     .      .  194:             if (SortedList_delete(curr_element) == 1){
+     .      .  195:                 fprintf(stderr, "Error deleting element. %s.\n", strerror(errno));
+     .      .  196:                 exit(2);
+     .      .  197:             }
+     .      .  198:         }
+     .      .  199:     }
+     .      .  200: 
+     .      .  201:     return NULL;
+     .      .  202: }
+---
+     .      .  203: 
+     .      .  204: /*****************/
+     .      .  205: /* MAIN FUNCTION */
+     .      .  206: /*****************/
+     .      .  207: 
+ROUTINE ====================== thread_list in /u/cs/ugrad/ngai/CS111/Lab2B/lab2_list.c
+  5088   5107 Total samples (flat / cumulative)
+     .      .   95: 
+     .      .   96:         list_elements[i].key = key_val;
+     .      .   97:     }
+     .      .   98: }
+     .      .   99: 
+---
+     .      .  100: void* thread_list(void* ptr){
+     .      .  101:     int start = *(int*) ptr;
+     .      .  102:     int num_elements = num_threads * num_iterations;
+     .      .  103: 
+     .      .  104:     //iterate through specific elements and insert them into list
+     .      .  105:     int i;
+     .      .  106:     for (i = start; i < num_elements; i += num_threads){
+     .      .  107:         //protect with mutex
+     .      .  108:         if (sync_opt == 'm'){
+     .      .  109:             pthread_mutex_lock(&mutex);
+     .      .  110:             SortedList_insert(list, &list_elements[i]);
+     .      .  111:             pthread_mutex_unlock(&mutex);
+     .      .  112:         }
+     .      .  113:         //protect with spin-lock
+     .      .  114:         else if (sync_opt == 's'){
+  2315   2315  115:             while (__sync_lock_test_and_set(&spin_val, 1));
+     .      6  116:             SortedList_insert(list, &list_elements[i]);
+     .      .  117:             __sync_lock_release(&spin_val);
+     .      .  118:         }
+     .      .  119:         //no sync option
+     .      .  120:         else{
+     .      .  121:             SortedList_insert(list, &list_elements[i]);
+     .      .  122:         }
+     .      .  123:     }
+     .      .  124: 
+     .      .  125:     //get list length
+     .      .  126:     int list_length = 0;
+     .      .  127:     //protect with mutex
+     .      .  128:     if (sync_opt == 'm'){
+     .      .  129:         pthread_mutex_lock(&mutex);
+     .      .  130:         list_length = SortedList_length(list);
+     .      .  131:         pthread_mutex_unlock(&mutex);
+     .      .  132:     }
+     .      .  133:     //protect with spin-lock
+     .      .  134:     else if (sync_opt == 's'){
+     .      .  135:         while (__sync_lock_test_and_set(&spin_val, 1));
+     .      .  136:         list_length = SortedList_length(list);
+     .      .  137:         __sync_lock_release(&spin_val);
+     .      .  138:     }
+     .      .  139:     //no sync option
+     .      .  140:     else{
+     .      .  141:         list_length = SortedList_length(list);
+     .      .  142:     }
+     .      .  143:     if (list_length < 0){
+     .      .  144:         fprintf(stderr, "Error getting list length. %s.\n", strerror(errno));
+     .      .  145:         exit(2);
+     .      .  146:     }
+     .      .  147: 
+     .      .  148: 
+     .      .  149:     //look up and delete previously inserted key
+     .      .  150:     int j;
+     .      .  151:     SortedListElement_t* curr_element = NULL;
+     .      .  152:     for (j = start; j < num_elements; j += num_threads){
+     .      .  153:         //protect with mutex
+     .      .  154:         if (sync_opt == 'm'){
+     .      .  155:             pthread_mutex_lock(&mutex);
+     .      .  156: 
+     .      .  157:             curr_element = SortedList_lookup(list, list_elements[j].key);
+     .      .  158:             if (curr_element == NULL){
+     .      .  159:                 fprintf(stderr, "Error looking up element. %s.\n", strerror(errno));
+     .      .  160:                 exit(2);
+     .      .  161:             }
+     .      .  162:             if (SortedList_delete(curr_element) == 1){
+     .      .  163:                 fprintf(stderr, "Error deleting element. %s.\n", strerror(errno));
+     .      .  164:                 exit(2);
+     .      .  165:             }
+     .      .  166: 
+     .      .  167:             pthread_mutex_unlock(&mutex);
+     .      .  168:         }
+     .      .  169:         //protect with spin-lock
+     .      .  170:         else if (sync_opt == 's'){
+  2773   2773  171:             while (__sync_lock_test_and_set(&spin_val, 1));
+     .      .  172:             
+     .     13  173:             curr_element = SortedList_lookup(list, list_elements[j].key);
+     .      .  174:             if (curr_element == NULL){
+     .      .  175:                 fprintf(stderr, "Error looking up element. %s.\n", strerror(errno));
+     .      .  176:                 exit(2);
+     .      .  177:             }
+     .      .  178:             if (SortedList_delete(curr_element) == 1){
+     .      .  179:                 fprintf(stderr, "Error deleting element. %s.\n", strerror(errno));
+     .      .  180:                 exit(2);
+     .      .  181:             }
+     .      .  182: 
+     .      .  183:             __sync_lock_release(&spin_val);
+     .      .  184:         }
+     .      .  185:         //no sync option
+     .      .  186:         else{
+     .      .  187:             curr_element = SortedList_lookup(list, list_elements[j].key);
+     .      .  188: 
+     .      .  189:             if (curr_element == NULL){
+     .      .  190:                 fprintf(stderr, "Error looking up element. %s.\n", strerror(errno));
+     .      .  191:                 exit(2);
+     .      .  192:             }
+     .      .  193: 
+     .      .  194:             if (SortedList_delete(curr_element) == 1){
+     .      .  195:                 fprintf(stderr, "Error deleting element. %s.\n", strerror(errno));
+     .      .  196:                 exit(2);
+     .      .  197:             }
+     .      .  198:         }
+     .      .  199:     }
+     .      .  200: 
+     .      .  201:     return NULL;
+     .      .  202: }
+---
+     .      .  203: 
+     .      .  204: /*****************/
+     .      .  205: /* MAIN FUNCTION */
+     .      .  206: /*****************/
+     .      .  207: 
